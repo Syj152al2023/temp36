@@ -2,12 +2,10 @@
 #include <avr/io.h> 
 #include <util/delay.h>
 #include <avr/interrupt.h> 
-
 #define TEMP_SENSOR_PIN 3
-
 uint8_t segm[13] = {
   0b00111111, // 0
-  0b0000110, // 1 
+  0b0000110,  // 1 
   0b01011011, // 2
   0b01001111, // 3
   0b01100110, // 4
@@ -17,50 +15,31 @@ uint8_t segm[13] = {
   0b01111111, // 8
   0b01101111, // 9
   0b01000000, // -
-  0      ,0     // empty
+  0      ,0  // empty
 };
 uint8_t razr[5] = {0, 2, 6, 8, 4};
-
 volatile uint8_t e = 0, d = 0, s = 0, t = 0; 
-
-void start() {
-PORTB |= (1 << 0);
-PORTB |= (1 << 4);
-}
-
-void stop() {
-PORTB &= ~(1 << 4);
-PORTB &= ~(1 << 0);
-}
-
+void start() {  PORTB |= (1 << 0);    PORTB |= (1 << 4);  }
+void stop()  {  PORTB &= ~(1 << 4);   PORTB &= ~(1 << 0);  }
 void wr_i2c(uint8_t val) {
 uint8_t x = 0;
 while (x < 8) {
-val & (1 << (7 - x)) ? PORTB &= ~(1 << 0) : PORTB |= (1 << 0);
-PORTB &= ~(1 << 4);
-PORTB |= (1 << 4);
-x++;
+  val & (1 << (7 - x)) ? PORTB &= ~(1 << 0) : PORTB |= (1 << 0);
+  PORTB &= ~(1 << 4);   PORTB |= (1 << 4);   x++;
 }
-PORTB &= ~(1 << 0);
-PORTB &= ~(1 << 4);
-PORTB |= (1 << 4);
-PORTB |= (1 << 0);
+PORTB &= ~(1 << 0);   PORTB &= ~(1 << 4);
+PORTB |= (1 << 4);    PORTB |= (1 << 0);
 }
 
 void brigness(uint8_t b) {
-if (b > 15) {
-b = 15;
-}
+if (b > 15) {   b = 15;  }
 start();
-wr_i2c(0b11100000);
-wr_i2c(0xE0 + b);
+wr_i2c(0b11100000);   wr_i2c(0xE0 + b);
 stop();
 }
 
 void _blink(uint8_t val) {
-if (val > 0b11) {
-val = 0b11;
-}
+if (val > 0b11) {   val = 0b11;  }
 start();
 wr_i2c(0b11100000);
 wr_i2c((val << 1) | 0b10000001);
@@ -68,9 +47,7 @@ stop();
 }
 
 void reset(uint8_t val = 1) {
-if (val > 1) {
-val = 1;
-}
+if (val > 1) {  val = 1;  }
 wr_i2c(0b11100000);
 wr_i2c(val | 0b10000000);
 stop();
@@ -84,75 +61,47 @@ wr_i2c(segm[val]);
 stop();
 }
 
-// Initialize the ADC
-void ADC_init() {
-// Set reference voltage to AVCC and left-align the result
-ADMUX = (1 << MUX0) | (1 << REFS0) | (1 << ADLAR);
-
-// Enable ADC and set prescaler to 64 for 125KHz sample rate (assuming 8MHz clock)
-ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1);
+void ADC_init() {   // Initialize the ADC
+ADMUX = (1 << MUX0) | (1 << REFS0) | (1 << ADLAR);  // Set reference voltage to AVCC and left-align the result
+ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1); // Enable ADC and set prescaler to 64 for 125KHz sample rate (assuming 8MHz clock)
 }
 
-// Read ADC value
-uint16_t readADC() {
-// Start the conversion
-ADCSRA |= (1 << ADSC);
-
-// Wait for the conversion to finish
-while (ADCSRA & (1 << ADSC));
-
-// Read the ADCL and ADCH registers for the ADC result
-uint16_t adcValue = ADC;
-
+uint16_t readADC() {// Read ADC value
+ADCSRA |= (1 << ADSC);// Start the conversion
+while (ADCSRA & (1 << ADSC));// Wait for the conversion to finish
+uint16_t adcValue = ADC;// Read the ADCL and ADCH registers for the ADC result
 return adcValue;
 }
 int main(void) {
 DDRB |= (1 << 0) | (1 << 4);
 PORTB &= ~(1 << 0) & ~(1 << 4);
-
-// Initialize the ADC
-ADC_init();
-
+ADC_init();// Initialize the ADC
 // Initialize the display
 start();
-wr_i2c(0b11100000);
-wr_i2c(0b00100001);
+wr_i2c(0b11100000);   wr_i2c(0b00100001);
 stop();
 start();
-wr_i2c(0b11100000);
-wr_i2c(0b10000001);
+wr_i2c(0b11100000);   wr_i2c(0b10000001);
 stop();
 start();
-wr_i2c(0b11100000);
-wr_i2c(0xe0 + 15);
+wr_i2c(0b11100000);   wr_i2c(0xe0 + 15);
 stop();
-
-// Enable global interrupts
-sei();
+sei();// Enable global interrupts
 
 while(1) {
-
   uint16_t adcValue = analogRead(TEMP_SENSOR_PIN);
-
-  float temp = adcValue * 500.0/1024.0;
-temp = map(temp ,11,196,-40 ,125);
+  float temp = adcValue * 500.0/1024.0;             //The mathematical equation to read the sensor value
+  temp = map(temp ,11,196,-40 ,125);               // mapping the values to the sesor's value
   if(temp < 0){
-   temp = -temp; 
-    _print(0, 10); 
-    // Print "-" at the first position
-   // Make temp positive for further calculations
+    temp = -temp;                                 // Make temp positive for further calculations
+    _print(0, 10);                               // Print "-" at the first position
   }
-
   int hundreds = temp/100;
-
-  int tens = ((int)temp%100)/10; // Cast temp to int
-
-  int units = (int)temp%10; // Cast temp to int
-//  if (temp<0){print nines}
+  int tens = ((int)temp%100)/10;            // Cast temp to int
+  int units = (int)temp%10;                 // Cast temp to int
   _print(0, hundreds);
   _print(1, tens);  
   _print(2, units);
-
 }
   return 0;
 }
